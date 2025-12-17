@@ -9,10 +9,12 @@ namespace FibonacciSphere.Rendering;
 /// <summary>
 /// Renders motion trails behind sphere points.
 /// </summary>
-public class TrailRenderer
+public class TrailRenderer : IDisposable
 {
+    private const int MaxTrailSize = 64;
     private readonly SKPaint _linePaint;
     private readonly SKPaint _dotPaint;
+    private readonly Vector2[] _trailBuffer = new Vector2[MaxTrailSize];
 
     public TrailRenderer()
     {
@@ -31,17 +33,17 @@ public class TrailRenderer
         };
     }
 
-    /// <summary>
-    /// Renders the trail for a single point.
-    /// </summary>
     public void RenderTrail(SKCanvas canvas, SpherePoint point, SphereSettings settings)
     {
-        if (point.TrailHistory.Count < 2 || settings.TrailLength == 0)
+        int trailCount = point.TrailCount;
+        if (trailCount < 2 || settings.TrailLength == 0)
         {
             return;
         }
 
-        var trail = point.TrailHistory.ToArray();
+        // Copy trail data to pre-allocated buffer (no allocation)
+        point.CopyTrailTo(_trailBuffer.AsSpan(0, trailCount));
+        var trail = _trailBuffer.AsSpan(0, trailCount);
         var baseColor = point.Color;
 
         switch (settings.TrailStyle)
@@ -58,15 +60,12 @@ public class TrailRenderer
         }
     }
 
-    private void RenderLineTrail(SKCanvas canvas, Vector2[] trail, SKColor baseColor, SphereSettings settings)
+    private void RenderLineTrail(SKCanvas canvas, ReadOnlySpan<Vector2> trail, SKColor baseColor, SphereSettings settings)
     {
         if (trail.Length < 2)
         {
             return;
         }
-
-        using var path = new SKPath();
-        path.MoveTo(trail[0].X, trail[0].Y);
 
         for (int i = 1; i < trail.Length; i++)
         {
@@ -83,7 +82,7 @@ public class TrailRenderer
         }
     }
 
-    private void RenderDotTrail(SKCanvas canvas, Vector2[] trail, SKColor baseColor, SphereSettings settings)
+    private void RenderDotTrail(SKCanvas canvas, ReadOnlySpan<Vector2> trail, SKColor baseColor, SphereSettings settings)
     {
         for (int i = 0; i < trail.Length; i++)
         {
@@ -96,7 +95,7 @@ public class TrailRenderer
         }
     }
 
-    private void RenderRibbonTrail(SKCanvas canvas, Vector2[] trail, SKColor baseColor, SphereSettings settings, float pointSize)
+    private void RenderRibbonTrail(SKCanvas canvas, ReadOnlySpan<Vector2> trail, SKColor baseColor, SphereSettings settings, float pointSize)
     {
         if (trail.Length < 2)
         {
@@ -104,7 +103,7 @@ public class TrailRenderer
         }
 
         using var path = new SKPath();
-        var points = new List<SKPoint>();
+        var points = new List<SKPoint>(trail.Length * 2);
 
         // Build ribbon outline
         for (int i = 0; i < trail.Length - 1; i++)
@@ -113,7 +112,6 @@ public class TrailRenderer
             var current = trail[i];
             var next = trail[i + 1];
 
-            // Calculate perpendicular direction for ribbon width
             var direction = Vector2.Normalize(next - current);
             var perpendicular = new Vector2(-direction.Y, direction.X);
 
@@ -146,7 +144,7 @@ public class TrailRenderer
 
             using var shader = SKShader.CreateLinearGradient(
                 new SKPoint(trail[0].X, trail[0].Y),
-                new SKPoint(trail[^1].X, trail[^1].Y),
+                new SKPoint(trail[trail.Length - 1].X, trail[trail.Length - 1].Y),
                 new SKColor[] { baseColor.WithAlpha(0), baseColor.WithAlpha((byte)(settings.TrailOpacity * 255)) },
                 SKShaderTileMode.Clamp);
 

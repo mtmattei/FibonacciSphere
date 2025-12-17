@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
 using FibonacciSphere.Helpers;
 using FibonacciSphere.Math;
@@ -143,7 +142,6 @@ public class SphereRenderer : IDisposable
     /// <summary>
     /// Updates animation state.
     /// </summary>
-    /// <param name="deltaTime">Time elapsed since last update in seconds</param>
     public void Update(float deltaTime)
     {
         _time += deltaTime;
@@ -155,54 +153,54 @@ public class SphereRenderer : IDisposable
             _rotationAngleY += _settings.RotationSpeed * deltaTime * direction;
         }
 
+        // Pre-calculate values used in loop
+        float baseSize = _settings.BasePointSize;
+        float sizeVariation = _settings.SizeVariation;
+        bool hasSizeVariation = sizeVariation > 0;
+        bool hasPulse = _settings.PulseSpeed > 0 && _settings.PulseAmount > 0;
+        float pulseTimeComponent = _time * _settings.PulseSpeed;
+        float pulseAmount = _settings.PulseAmount;
+        bool hasWobble = _settings.WobbleAmplitude > 0;
+        float wobbleTimeComponent = _time * _settings.WobbleFrequency;
+        float wobbleAmplitude = _settings.WobbleAmplitude;
+        var wobbleAxis = _settings.WobbleAxis;
+
         // Update each point
         foreach (var point in _points)
         {
-            // Apply rotation to base position
-            var rotated = point.BasePosition.RotateY(_rotationAngleY);
-            rotated = rotated.RotateX(_rotationAngleX);
+            // Apply combined Y then X rotation (more efficient than two separate calls)
+            var rotated = point.BasePosition.RotateYX(_rotationAngleY, _rotationAngleX);
 
-            // Apply wobble effect
-            rotated = ApplyWobble(point, rotated);
-
-            // Apply pulse effect to size
-            float sizeMultiplier = 1f;
-            if (_settings.PulseSpeed > 0 && _settings.PulseAmount > 0)
+            // Apply wobble effect (inlined for performance)
+            if (hasWobble)
             {
-                float pulse = MathF.Sin(_time * _settings.PulseSpeed + point.WobblePhase);
-                sizeMultiplier = 1f + pulse * _settings.PulseAmount;
+                float wobble = MathF.Sin(wobbleTimeComponent + point.WobblePhase);
+                float offset = wobble * wobbleAmplitude;
+
+                rotated = wobbleAxis switch
+                {
+                    WobbleAxis.Radial => rotated * (1f + offset),
+                    WobbleAxis.Tangential => ApplyTangentialWobble(rotated, offset),
+                    WobbleAxis.Random => rotated + point.RandomWobbleDirection * offset,
+                    _ => rotated
+                };
             }
 
-            // Apply size variation
-            float baseSize = _settings.BasePointSize;
-            if (_settings.SizeVariation > 0)
+            // Calculate size with pre-computed values
+            float finalSize = baseSize;
+            if (hasSizeVariation)
             {
-                float variation = MathF.Sin(point.Index * 0.5f) * _settings.SizeVariation;
-                baseSize += variation;
+                finalSize += MathF.Sin(point.Index * 0.5f) * sizeVariation;
+            }
+            if (hasPulse)
+            {
+                float pulse = MathF.Sin(pulseTimeComponent + point.WobblePhase);
+                finalSize *= 1f + pulse * pulseAmount;
             }
 
             point.CurrentPosition = rotated;
-            point.Size = baseSize * sizeMultiplier;
+            point.Size = finalSize;
         }
-    }
-
-    private Vector3 ApplyWobble(SpherePoint point, Vector3 position)
-    {
-        if (_settings.WobbleAmplitude <= 0)
-        {
-            return position;
-        }
-
-        float wobble = MathF.Sin(_time * _settings.WobbleFrequency + point.WobblePhase);
-        float offset = wobble * _settings.WobbleAmplitude;
-
-        return _settings.WobbleAxis switch
-        {
-            WobbleAxis.Radial => position * (1f + offset),
-            WobbleAxis.Tangential => ApplyTangentialWobble(position, offset),
-            WobbleAxis.Random => position + point.RandomWobbleDirection * offset,
-            _ => position
-        };
     }
 
     private Vector3 ApplyTangentialWobble(Vector3 position, float offset)
@@ -247,8 +245,8 @@ public class SphereRenderer : IDisposable
             projectedPoints.Add((point, screenPos, depth));
         }
 
-        // Sort by depth (render far points first)
-        projectedPoints = projectedPoints.OrderByDescending(p => p.depth).ToList();
+        // Sort by depth (render far points first) - in-place sort for efficiency
+        projectedPoints.Sort((a, b) => b.depth.CompareTo(a.depth));
 
         // Render trails first (behind points)
         foreach (var (point, _, _) in projectedPoints)

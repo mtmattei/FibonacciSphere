@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+using System;
 using System.Numerics;
 using SkiaSharp;
 
@@ -9,83 +9,68 @@ namespace FibonacciSphere.Models;
 /// </summary>
 public class SpherePoint
 {
-    /// <summary>
-    /// Index of this point in the sphere.
-    /// </summary>
+    private const int MaxBufferSize = 64;
+    private readonly Vector2[] _trailBuffer = new Vector2[MaxBufferSize];
+    private int _trailHead;
+    private int _trailCount;
+
     public int Index { get; init; }
-
-    /// <summary>
-    /// Base position on the unit sphere (before rotation/wobble).
-    /// </summary>
     public Vector3 BasePosition { get; init; }
-
-    /// <summary>
-    /// Current animated position (after applying rotation and effects).
-    /// </summary>
     public Vector3 CurrentPosition { get; set; }
-
-    /// <summary>
-    /// Phase offset for wobble animation to create varied movement.
-    /// </summary>
     public float WobblePhase { get; init; }
-
-    /// <summary>
-    /// Random direction for random wobble axis mode.
-    /// </summary>
     public Vector3 RandomWobbleDirection { get; init; }
-
-    /// <summary>
-    /// Current size of the point (may be animated).
-    /// </summary>
     public float Size { get; set; }
-
-    /// <summary>
-    /// Color of this point.
-    /// </summary>
     public SKColor Color { get; set; }
-
-    /// <summary>
-    /// Whether this point is currently selected.
-    /// </summary>
     public bool IsSelected { get; set; }
-
-    /// <summary>
-    /// Whether the pointer is hovering over this point.
-    /// </summary>
     public bool IsHovered { get; set; }
-
-    /// <summary>
-    /// History of screen positions for trail rendering.
-    /// </summary>
-    public Queue<Vector2> TrailHistory { get; } = new();
-
-    /// <summary>
-    /// Maximum trail length (set from settings).
-    /// </summary>
     public int MaxTrailLength { get; set; } = 20;
-
-    /// <summary>
-    /// Depth value for z-ordering (camera Z coordinate after projection).
-    /// </summary>
     public float Depth { get; set; }
 
+    public int TrailCount => _trailCount;
+
     /// <summary>
-    /// Adds a screen position to the trail history, maintaining max length.
+    /// Adds a screen position to the trail history using O(1) circular buffer.
     /// </summary>
     public void AddToTrail(Vector2 screenPosition)
     {
-        TrailHistory.Enqueue(screenPosition);
-        while (TrailHistory.Count > MaxTrailLength)
+        int maxLength = System.Math.Min(MaxTrailLength, MaxBufferSize);
+
+        _trailBuffer[_trailHead] = screenPosition;
+        _trailHead = (_trailHead + 1) % maxLength;
+
+        if (_trailCount < maxLength)
         {
-            TrailHistory.Dequeue();
+            _trailCount++;
         }
     }
 
     /// <summary>
-    /// Clears all trail history.
+    /// Gets trail position at index (0 = oldest, TrailCount-1 = newest).
     /// </summary>
+    public Vector2 GetTrailPosition(int index)
+    {
+        int maxLength = System.Math.Min(MaxTrailLength, MaxBufferSize);
+        int actualIndex = (_trailHead - _trailCount + index + maxLength) % maxLength;
+        return _trailBuffer[actualIndex];
+    }
+
+    /// <summary>
+    /// Copies trail data to a span for efficient iteration.
+    /// </summary>
+    public void CopyTrailTo(Span<Vector2> destination)
+    {
+        int maxLength = System.Math.Min(MaxTrailLength, MaxBufferSize);
+        int start = (_trailHead - _trailCount + maxLength) % maxLength;
+
+        for (int i = 0; i < _trailCount && i < destination.Length; i++)
+        {
+            destination[i] = _trailBuffer[(start + i) % maxLength];
+        }
+    }
+
     public void ClearTrail()
     {
-        TrailHistory.Clear();
+        _trailHead = 0;
+        _trailCount = 0;
     }
 }

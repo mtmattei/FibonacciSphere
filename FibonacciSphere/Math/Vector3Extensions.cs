@@ -47,9 +47,6 @@ public static class Vector3Extensions
     /// <summary>
     /// Rotates a vector around the Z axis by the specified angle.
     /// </summary>
-    /// <param name="vector">The vector to rotate</param>
-    /// <param name="angle">Rotation angle in radians</param>
-    /// <returns>Rotated vector</returns>
     public static Vector3 RotateZ(this Vector3 vector, float angle)
     {
         float cos = MathF.Cos(angle);
@@ -59,6 +56,29 @@ public static class Vector3Extensions
             vector.X * cos - vector.Y * sin,
             vector.X * sin + vector.Y * cos,
             vector.Z
+        );
+    }
+
+    /// <summary>
+    /// Combined Y then X rotation - more efficient than two separate calls.
+    /// </summary>
+    public static Vector3 RotateYX(this Vector3 vector, float angleY, float angleX)
+    {
+        float cosY = MathF.Cos(angleY);
+        float sinY = MathF.Sin(angleY);
+        float cosX = MathF.Cos(angleX);
+        float sinX = MathF.Sin(angleX);
+
+        // First rotate around Y
+        float x1 = vector.X * cosY + vector.Z * sinY;
+        float y1 = vector.Y;
+        float z1 = -vector.X * sinY + vector.Z * cosY;
+
+        // Then rotate around X
+        return new Vector3(
+            x1,
+            y1 * cosX - z1 * sinX,
+            y1 * sinX + z1 * cosX
         );
     }
 

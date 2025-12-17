@@ -5,8 +5,6 @@ using FibonacciSphere.ViewModels;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
-using SkiaSharp;
-using SkiaSharp.Views.Windows;
 
 namespace FibonacciSphere;
 
@@ -49,6 +47,7 @@ public sealed partial class MainPage : Page
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        Canvas.ViewModel = ViewModel;
         ViewModel.ApplySettings();
         _renderTimer.Start();
     }
@@ -78,15 +77,7 @@ public sealed partial class MainPage : Page
         ViewModel.Renderer.Update(deltaTime);
 
         // Request redraw
-        Canvas.Invalidate();
-    }
-
-    private void OnPaintSurface(object? sender, SKPaintSurfaceEventArgs e)
-    {
-        var canvas = e.Surface.Canvas;
-        var info = e.Info;
-
-        ViewModel.Renderer.Render(canvas, info.Width, info.Height);
+        Canvas.RequestInvalidate();
     }
 
     private void OnPointerPressed(object sender, PointerRoutedEventArgs e)
