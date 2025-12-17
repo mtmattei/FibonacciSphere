@@ -321,29 +321,29 @@ public Vector2 ProjectToScreen(Vector3 worldPos, Matrix4x4 viewProjection, Vecto
 
 ## Implementation Milestones
 
-### Phase 1: Foundation (Day 1-2)
+### Phase 1: Foundation
 - [ ] Create project with SkiaSharp.Views.Uno package
 - [ ] Implement `FibonacciDistribution.cs` with point generation
 - [ ] Implement `Camera3D.cs` with basic projection
 - [ ] Render static points on canvas
 
-### Phase 2: Rotation & Interaction (Day 3-4)
+### Phase 2: Rotation & Interaction
 - [ ] Add mouse drag rotation
 - [ ] Implement auto-rotation with speed control
 - [ ] Add point hover detection (highlight nearest point)
 - [ ] Add point click selection
 
-### Phase 3: Animation Effects (Day 5-6)
+### Phase 3: Animation Effects 
 - [ ] Implement wobble effect with per-point phase
 - [ ] Add size pulsing animation
 - [ ] Implement depth-based scaling and opacity
 
-### Phase 4: Trails (Day 7)
+### Phase 4: Trails 
 - [ ] Track position history in `SpherePoint`
 - [ ] Render trail lines with opacity fade
 - [ ] Optimize trail rendering for performance
 
-### Phase 5: Polish (Day 8-10)
+### Phase 5: Polish
 - [ ] Build full control panel UI
 - [ ] Add color themes / gradients
 - [ ] Add settings persistence
